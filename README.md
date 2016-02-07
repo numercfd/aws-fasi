@@ -19,14 +19,14 @@ You can set-up two auto scaling groups, one for the spot instances and other for
 ## Lifecycle
 ```
 ----0------X-------------0---------I----------0-------
-  Pool  Failure      Failover  Launched  Elastic IP
+  Pool  Failure      Failover  Launched   Resources
 ```
 
 1. Pool: Lambda function check instances
 2. Failure: A spot instance has failed
 3. Failover: Lambda function launches an on-demand replacement
 4. Launched: Replacement is running
-5. Elastic IP: Lambda function assigns the elastic ip
+5. Resources: Lambda function assigns the elastic ip and EBS volume
 
 ## Configuring
 **NOTE: You only need to do this once per AWS account. A single function can handle multiple auto scaling groups.**
@@ -74,8 +74,9 @@ Key|Value
 -----|------
 _fasi_failover|(name of the **failover-asg** group)
 _fasi_elastic_ip|(reservation-id of the elastic ip to use)
+_fasi_ebs|(volume-id of permanent ebs)
 
-Everything should be up and running! If your instance in the **primary-asg** fails (and it's not replaced) the lambda script automatically launches a new one in the **failover-asg** and change the elastic ip association. As soon as the **primary-asg** succeeds in launching an instance, the **failover-asg** is scaled-down.
+Everything should be up and running! If your instance in the **primary-asg** fails (and it's not replaced) the lambda script automatically launches a new one in the **failover-asg**, changes the elastic ip association and reattach the ebs volume. As soon as the **primary-asg** succeeds in launching an instance, the **failover-asg** is scaled-down.
 
 ## Usage (multiple instances failover)
 Use the same steps as *single instance failover*, but set the *Max Capacity* accordingly. Please note that **elastic ip reassociation does not work with multiple instances**. This means that you must not set the *_fasi_elastic_ip* tag.

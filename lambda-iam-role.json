@@ -5,7 +5,10 @@
             "Effect": "Allow",
             "Action": [
                 "ec2:AssociateAddress",
-                "ec2:DescribeAddresses"
+                "ec2:DescribeAddresses",
+                "ec2:AttachVolume",
+                "ec2:DetachVolume",
+                "ec2:DescribeVolumes"
             ],
             "Resource": "*"
         },

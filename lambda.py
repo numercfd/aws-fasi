@@ -3,6 +3,7 @@ import boto3
 
 TAG_FAILOVER = "_fasi_failover"
 TAG_ELASTIC_IP = "_fasi_elastic_ip"
+TAG_EBS = "_fasi_ebs"
 
 
 def main(event, context):
@@ -30,10 +31,12 @@ def main(event, context):
         for tag in group["Tags"]:
             if tag["Key"] == TAG_ELASTIC_IP:
                 mirror.elastic_ip = tag["Value"]
-                break
+            elif tag["Key"] == TAG_EBS:
+                mirror.ebs = tag["Value"]
         mirrors.append(mirror)
 
     elastic_ips = {}
+    ebs_volumes = {}
     for mirror in mirrors:
         deficit = mirror.primary_desired_capacity - len(mirror.primary_instances)
         deficit = deficit if deficit >= 0 else 0
@@ -50,6 +53,12 @@ def main(event, context):
             elif len(mirror.failover_instances) == 1:
                 elastic_ips[mirror.elastic_ip] = mirror.failover_instances[0]
 
+        if mirror.ebs:
+            if len(mirror.primary_instances) == 1:
+                ebs_volumes[mirror.ebs] = mirror.primary_instances[0]
+            elif len(mirror.failover_instances) == 1:
+                ebs_volumes[mirror.ebs] = mirror.failover_instances[0]
+
     if elastic_ips:
         ec2_client = BotoClientFacade("ec2")
         resp = ec2_client.raw_request("describe_addresses", {"AllocationIds": elastic_ips.keys()})
@@ -63,6 +72,33 @@ def main(event, context):
                 ec2_client.raw_request("associate_address", {
                     "InstanceId": ip_owner, "AllocationId": elastic_ip["AllocationId"],
                     "AllowReassociation": True})
+
+    if ebs_volumes:
+        ec2_client = BotoClientFacade("ec2")
+        resp = ec2_client.raw_request("describe_volumes", {"VolumeIds": ebs_volumes.keys()})
+
+        for volume in resp["Volumes"]:
+            current_allocated = None
+            for attachment in volume["Attachments"]:
+                if attachment["State"] in ["attached", "attaching"]:
+                    current_allocated = attachment.get("InstanceId", None)
+                    break
+
+            volume_owner = ebs_volumes[volume["VolumeId"]]["InstanceId"]
+            if volume_owner != current_allocated:
+                if current_allocated:
+                    print "Detaching ebs volume {} from instance {}".format(volume["VolumeId"],
+                                                                      current_allocated)
+                    ec2_client.raw_request("detach_volume", {
+                        "InstanceId": current_allocated, "VolumeId": volume["VolumeId"],
+                        "Device": "/dev/sdf"})
+            if not current_allocated:
+                print "Attaching ebs volume {} to instance {}".format(volume["VolumeId"],
+                                                                      volume_owner)
+                ec2_client.raw_request("attach_volume", {
+                    "InstanceId": volume_owner, "VolumeId": volume["VolumeId"],
+                    "Device": "/dev/sdf"})
+
     return "finished"
 
 
@@ -79,6 +115,9 @@ class AutoScalingMirror:
     failover_needed_capacity = None
     elastic_ip = None
     elastic_ip_owner = None
+
+    ebs = None
+    ebs_owner = None
 
     def __init__(self, primary_name, failover_name):
         self.primary_name = primary_name
