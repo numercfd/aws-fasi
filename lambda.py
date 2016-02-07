@@ -1,16 +1,18 @@
 """Failover AWS Spot Instances."""
-
 import boto3
 
+TAG_FAILOVER = "_fasi_failover"
+TAG_ELASTIC_IP = "_fasi_elastic_ip"
+
 def main(event, context):
-    client = BotoClientFacade('autoscaling')
+    client = BotoClientFacade("autoscaling")
     response = client.multi_request('describe_auto_scaling_groups')
     groups = {group["AutoScalingGroupName"]: group for group in response["AutoScalingGroups"]}
 
     mirrors = []
     for group_name, group in groups.items():
         for tag in group["Tags"]:
-            if tag["Key"] == "_fasi_failover":
+            if tag["Key"] == TAG_FAILOVER:
                 failover = tag["Value"]
                 break
         else:
@@ -25,7 +27,7 @@ def main(event, context):
             print "KeyError: group '{}' exists?".format(failover)
             continue
         for tag in group["Tags"]:
-            if tag["Key"] == "_fasi_elastic_ip":
+            if tag["Key"] == TAG_ELASTIC_IP:
                 mirror.elastic_ip = tag["Value"]
                 break
         mirrors.append(mirror)
