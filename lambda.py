@@ -81,10 +81,12 @@ class AutoScalingMirror:
         self.failover_name = failover_name
 
 class BotoClientFacade(object):
+    """High level boto3 requests"""
     def __init__(self, service_name):
         self._boto_client = boto3.client(service_name)
 
     def multi_request(self, request_name, parameters=None):
+        """Emulate pagination as a single request"""
         parameters = {} if parameters is None else parameters
         if 'NextToken' in parameters:
             raise Exception("'NextToken' parameter is not allowed in multi_request")
