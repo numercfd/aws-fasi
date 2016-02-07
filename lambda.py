@@ -4,9 +4,10 @@ import boto3
 TAG_FAILOVER = "_fasi_failover"
 TAG_ELASTIC_IP = "_fasi_elastic_ip"
 
+
 def main(event, context):
     client = BotoClientFacade("autoscaling")
-    response = client.multi_request('describe_auto_scaling_groups')
+    response = client.multi_request("describe_auto_scaling_groups")
     groups = {group["AutoScalingGroupName"]: group for group in response["AutoScalingGroups"]}
 
     mirrors = []
@@ -37,9 +38,9 @@ def main(event, context):
         deficit = mirror.primary_desired_capacity - len(mirror.primary_instances)
         deficit = deficit if deficit >= 0 else 0
 
-        if deficit <> mirror.failover_desired_capacity:
+        if deficit != mirror.failover_desired_capacity:
             print "Scaling failover to {} instances".format(deficit)
-            client.raw_request('set_desired_capacity', {
+            client.raw_request("set_desired_capacity", {
                 "AutoScalingGroupName": mirror.failover_name, "DesiredCapacity": deficit,
                 "HonorCooldown": False})
 
@@ -50,8 +51,8 @@ def main(event, context):
                 elastic_ips[mirror.elastic_ip] = mirror.failover_instances[0]
 
     if elastic_ips:
-        ec2_client = BotoClientFacade('ec2')
-        resp = ec2_client.raw_request('describe_addresses', {"AllocationIds": elastic_ips.keys()})
+        ec2_client = BotoClientFacade("ec2")
+        resp = ec2_client.raw_request("describe_addresses", {"AllocationIds": elastic_ips.keys()})
 
         for elastic_ip in resp["Addresses"]:
             current_allocated = elastic_ip.get("InstanceId", None)
@@ -59,10 +60,11 @@ def main(event, context):
             if ip_owner != current_allocated:
                 print "Associating elastic ip {} to instance {}".format(elastic_ip["AllocationId"],
                                                                         ip_owner)
-                ec2_client.raw_request('associate_address', {
+                ec2_client.raw_request("associate_address", {
                     "InstanceId": ip_owner, "AllocationId": elastic_ip["AllocationId"],
                     "AllowReassociation": True})
     return "finished"
+
 
 class AutoScalingMirror:
     primary_name = None
@@ -82,6 +84,7 @@ class AutoScalingMirror:
         self.primary_name = primary_name
         self.failover_name = failover_name
 
+
 class BotoClientFacade(object):
     """High level boto3 requests"""
     def __init__(self, service_name):
@@ -90,7 +93,7 @@ class BotoClientFacade(object):
     def multi_request(self, request_name, parameters=None):
         """Emulate pagination as a single request"""
         parameters = {} if parameters is None else parameters
-        if 'NextToken' in parameters:
+        if "NextToken" in parameters:
             raise Exception("'NextToken' parameter is not allowed in multi_request")
 
         full_response = {}
@@ -106,8 +109,8 @@ class BotoClientFacade(object):
                         full_response[key] = []
                     full_response[key].append(value)
             try:
-                next_token = response['NextToken']
-                parameters['NextToken'] = next_token
+                next_token = response["NextToken"]
+                parameters["NextToken"] = next_token
                 if not next_token:
                     break
             except KeyError:
