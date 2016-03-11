@@ -1,13 +1,14 @@
 """Failover AWS Spot Instances."""
 import boto3
 
+REGION_NAME = "sa-east-1"
 TAG_FAILOVER = "_fasi_failover"
 TAG_ELASTIC_IP = "_fasi_elastic_ip"
 TAG_EBS = "_fasi_ebs"
 
 
 def main(event, context):
-    client = BotoClientFacade("autoscaling")
+    client = BotoClientFacade("autoscaling", REGION_NAME)
     response = client.multi_request("describe_auto_scaling_groups")
     groups = {group["AutoScalingGroupName"]: group for group in response["AutoScalingGroups"]}
 
@@ -60,7 +61,7 @@ def main(event, context):
                 ebs_volumes[mirror.ebs] = mirror.failover_instances[0]
 
     if elastic_ips:
-        ec2_client = BotoClientFacade("ec2")
+        ec2_client = BotoClientFacade("ec2", REGION_NAME)
         resp = ec2_client.raw_request("describe_addresses", {"AllocationIds": elastic_ips.keys()})
 
         for elastic_ip in resp["Addresses"]:
@@ -74,7 +75,7 @@ def main(event, context):
                     "AllowReassociation": True})
 
     if ebs_volumes:
-        ec2_client = BotoClientFacade("ec2")
+        ec2_client = BotoClientFacade("ec2", REGION_NAME)
         resp = ec2_client.raw_request("describe_volumes", {"VolumeIds": ebs_volumes.keys()})
 
         for volume in resp["Volumes"]:
@@ -126,8 +127,8 @@ class AutoScalingMirror:
 
 class BotoClientFacade(object):
     """High level boto3 requests"""
-    def __init__(self, service_name):
-        self._boto_client = boto3.client(service_name)
+    def __init__(self, service_name, region_name):
+        self._boto_client = boto3.client(service_name, region_name=region_name)
 
     def multi_request(self, request_name, parameters=None):
         """Emulate pagination as a single request"""
