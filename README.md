@@ -80,3 +80,7 @@ Everything should be up and running! If your instance in the **primary-asg** fai
 
 ## Usage (multiple instances failover)
 Use the same steps as *single instance failover*, but set the *Max Capacity* accordingly. Please note that **elastic ip reassociation does not work with multiple instances**. This means that you must not set the *_fasi_elastic_ip* tag.
+
+
+## License ##
+This project was developed by [NUMER Simulação Numérica](https://numer.com.br) and is available under the MIT license.
